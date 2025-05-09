@@ -1,0 +1,8 @@
+Query: 
+        INSERT INTO users (username, age) VALUES
+        ('user1', 25),
+        ('user2', 30),
+        ('user3', 35),
+        ('user4', 40)
+        
+Parameters: None

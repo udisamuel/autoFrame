@@ -1,0 +1,2 @@
+Query: DROP TABLE users
+Parameters: None

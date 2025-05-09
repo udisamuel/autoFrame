@@ -1,0 +1,4 @@
+Result: ('id', 'integer', None, "nextval('test_table_id_seq'::regclass)", 'NO')
+('name', 'character varying', 100, None, 'NO')
+('email', 'character varying', 100, None, 'YES')
+('created_at', 'timestamp without time zone', None, 'CURRENT_TIMESTAMP', 'YES')

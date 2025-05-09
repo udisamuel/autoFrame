@@ -1,0 +1,6 @@
+URL: https://jsonplaceholder.typicode.com/posts/1
+Method: GET
+Headers: {}
+Params: None
+Data: None
+JSON: None

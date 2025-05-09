@@ -1,0 +1,8 @@
+Query: 
+        INSERT INTO test_table (name, email) VALUES
+        ('Alice', 'alice@example.com'),
+        ('Bob', 'bob@example.com'),
+        ('Charlie', 'charlie@example.com')
+        ON CONFLICT (email) DO NOTHING
+        
+Parameters: None

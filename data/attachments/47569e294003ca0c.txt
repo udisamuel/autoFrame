@@ -1,0 +1,2 @@
+Query: SELECT username, age FROM users WHERE age >= %s ORDER BY age
+Parameters: (30,)

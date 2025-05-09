@@ -1,0 +1,11 @@
+URL: https://jsonplaceholder.typicode.com/posts/1
+Method: PUT
+Headers: {}
+Params: None
+Data: None
+JSON: {
+  "id": 1,
+  "title": "Updated Post Title",
+  "body": "This post was updated via the API",
+  "userId": 1
+}

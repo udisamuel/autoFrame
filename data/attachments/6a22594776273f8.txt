@@ -1,0 +1,2 @@
+Query: DROP TABLE test_table
+Parameters: None

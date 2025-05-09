@@ -1,0 +1,10 @@
+URL: https://jsonplaceholder.typicode.com/posts
+Method: POST
+Headers: {}
+Params: None
+Data: None
+JSON: {
+  "title": "Test Post via API",
+  "body": "This post was created via the API and should be in the database",
+  "userId": 1
+}
