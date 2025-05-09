@@ -1,0 +1,83 @@
+name: Automation Framework CI
+
+on:
+  push:
+    branches: [ "**" ]  # Trigger on push to any branch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'  # Adjust based on your Python version
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install -r requirements.txt
+
+    - name: Install Playwright browsers
+      run: |
+        python -m playwright install --with-deps
+
+    - name: Install Allure CLI
+      run: |
+        curl -o allure-2.24.1.tgz -OLs https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.tgz
+        tar -zxvf allure-2.24.1.tgz -C /tmp
+        sudo ln -s /tmp/allure-2.24.1/bin/allure /usr/local/bin/allure
+        allure --version
+
+    - name: Run tests
+      run: |
+        mkdir -p reports/allure-results
+        # GitHub Actions runners typically have 2 cores
+        python -m pytest tests -n 2 --alluredir=reports/allure-results --dist=loadfile
+      env:
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_DB: testdb
+
+    - name: Generate Allure report
+      if: always()  # Generate report even if tests fail
+      run: |
+        allure generate reports/allure-results -o reports/allure-report --clean
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: allure-report
+        path: reports/allure-report/
+        retention-days: 30
+
+    - name: Deploy Allure report to GitHub Pages
+      if: github.ref == 'refs/heads/main' && always()  # Only deploy from main branch
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./reports/allure-report
+        publish_branch: gh-pages
