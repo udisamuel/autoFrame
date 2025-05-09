@@ -1,5 +1,7 @@
 # Automation Testing Framework
 
+![Logo](autoFrame_logo_compressed.jpg)
+
 A comprehensive and modular Python-based testing framework for automating API, UI, database, and AWS integration tests, with robust reporting capabilities.
 
 ## 🧰 Overview
