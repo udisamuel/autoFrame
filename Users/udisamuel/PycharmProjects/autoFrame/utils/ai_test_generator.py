@@ -8,11 +8,25 @@ logger = logging.getLogger(__name__)
 
 # Check if OpenAI is available
 OPENAI_AVAILABLE = False
+OPENAI_VERSION = None
 try:
     import openai
+    import pkg_resources
     OPENAI_AVAILABLE = True
+    OPENAI_VERSION = pkg_resources.get_distribution("openai").version
+    logger.info(f"Found OpenAI package version {OPENAI_VERSION}")
+    
+    # Check if it's a legacy version
+    if OPENAI_VERSION.startswith('0.'):
+        OPENAI_LEGACY = True
+        logger.info("Using legacy OpenAI API")
+    else:
+        OPENAI_LEGACY = False
+        logger.info("Using modern OpenAI API")
 except ImportError:
     logger.warning("OpenAI package not found. AI test generation will use templates.")
+except Exception as e:
+    logger.warning(f"Error detecting OpenAI version: {e}. Using fallback methods.")
 
 class AITestGenerator:
     """Helper class for generating test cases using AI."""
@@ -24,10 +38,39 @@ class AITestGenerator:
         
         if self.openai_available:
             try:
-                openai.api_key = self.api_key
+                # Configure OpenAI client based on version
+                if 'OPENAI_LEGACY' in globals() and OPENAI_LEGACY:
+                    # For older versions (<1.0.0)
+                    openai.api_key = self.api_key
+                else:
+                    # For newer versions (>=1.0.0)
+                    self.client = openai.OpenAI(api_key=self.api_key)
             except Exception as e:
                 logger.error(f"Failed to initialize OpenAI client: {e}")
                 self.openai_available = False
+                
+    def _call_openai_api(self, messages, temperature=0.3):
+        """Call OpenAI API with version handling."""
+        try:
+            if 'OPENAI_LEGACY' in globals() and OPENAI_LEGACY:
+                # Legacy API call (< 1.0.0)
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    temperature=temperature
+                )
+                return response.choices[0].message.content
+            else:
+                # Modern API call (>= 1.0.0)
+                response = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    temperature=temperature
+                )
+                return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Error calling OpenAI API: {e}")
+            raise
     
     def generate_api_test(self, 
                          endpoint: str,
@@ -79,17 +122,12 @@ class AITestGenerator:
                 ```
                 """
                 
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a test automation expert that generates Python code."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.3
-                )
+                content = self._call_openai_api([
+                    {"role": "system", "content": "You are a test automation expert that generates Python code."},
+                    {"role": "user", "content": prompt}
+                ])
                 
                 # Extract the Python code from the response
-                content = response.choices[0].message.content
                 code_match = re.search(r'```python\s*([\s\S]*?)\s*```', content)
                 if code_match:
                     code = code_match.group(1)
@@ -219,17 +257,12 @@ def test_{http_method.lower()}_{endpoint_name}(api):
                 ```
                 """
                 
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a test automation expert that generates Python code."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.3
-                )
+                content = self._call_openai_api([
+                    {"role": "system", "content": "You are a test automation expert that generates Python code."},
+                    {"role": "user", "content": prompt}
+                ])
                 
                 # Extract the Python code from the response
-                content = response.choices[0].message.content
                 code_match = re.search(r'```python\s*([\s\S]*?)\s*```', content)
                 if code_match:
                     code = code_match.group(1)
@@ -344,17 +377,12 @@ def test_{page_name.lower()}_{func_name}(_setup):
                 ```
                 """
                 
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a test automation expert that generates Python code for database testing."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.3
-                )
+                content = self._call_openai_api([
+                    {"role": "system", "content": "You are a test automation expert that generates Python code for database testing."},
+                    {"role": "user", "content": prompt}
+                ])
                 
                 # Extract the Python code from the response
-                content = response.choices[0].message.content
                 code_match = re.search(r'```python\s*([\s\S]*?)\s*```', content)
                 if code_match:
                     code = code_match.group(1)

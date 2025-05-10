@@ -10,10 +10,11 @@ Three main AI capabilities have been integrated into the framework:
 2. **AI-powered Test Case Generation** - Automatically create test cases for API, UI, and DB testing
 3. **Intelligent Test Result Analysis** - Analyze test failures to identify root causes and suggest fixes
 
-## Important Note on Dependencies
+## Important Notes on Dependencies
 
-The AI capabilities are designed to work with or without the OpenAI package:
+The AI capabilities are designed to work with any available OpenAI package version:
 
+- The framework supports both legacy (0.x) and modern (1.x+) OpenAI API versions
 - When OpenAI is available, the framework uses AI to provide enhanced capabilities
 - When OpenAI is not available, the framework falls back to built-in methods for generating test data, test cases, and analysis
 - This graceful degradation ensures the framework remains functional in all environments
@@ -184,8 +185,16 @@ AI_TEST_GENERATION_ENABLED=true
 
 ## Requirements
 
-The AI capabilities work with or without the following optional dependency:
+The AI capabilities work with any available OpenAI package:
 
-- `openai>=0.27.0; python_version >= "3.8"`
+- `openai>=0.27.0,<=1.78.0; python_version >= "3.8"`
 
 If the OpenAI package is not available, the framework will use built-in fallback methods.
+
+## Version Compatibility
+
+- The AI modules automatically detect the installed OpenAI version
+- Support for both legacy (0.x) and modern (1.x+) OpenAI API versions
+- Graceful fallback to template-based generation and rule-based analysis when AI is unavailable
+
+This flexibility ensures the framework works in all environments, regardless of package availability or version constraints.

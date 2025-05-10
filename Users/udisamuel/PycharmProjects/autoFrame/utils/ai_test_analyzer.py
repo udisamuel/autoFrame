@@ -9,11 +9,25 @@ logger = logging.getLogger(__name__)
 
 # Check if OpenAI is available
 OPENAI_AVAILABLE = False
+OPENAI_VERSION = None
 try:
     import openai
+    import pkg_resources
     OPENAI_AVAILABLE = True
+    OPENAI_VERSION = pkg_resources.get_distribution("openai").version
+    logger.info(f"Found OpenAI package version {OPENAI_VERSION}")
+    
+    # Check if it's a legacy version
+    if OPENAI_VERSION.startswith('0.'):
+        OPENAI_LEGACY = True
+        logger.info("Using legacy OpenAI API")
+    else:
+        OPENAI_LEGACY = False
+        logger.info("Using modern OpenAI API")
 except ImportError:
     logger.warning("OpenAI package not found. AI test analysis will use basic analysis.")
+except Exception as e:
+    logger.warning(f"Error detecting OpenAI version: {e}. Using fallback methods.")
 
 class AITestAnalyzer:
     """Helper class for analyzing test results using AI."""
@@ -25,10 +39,39 @@ class AITestAnalyzer:
         
         if self.openai_available:
             try:
-                openai.api_key = self.api_key
+                # Configure OpenAI client based on version
+                if 'OPENAI_LEGACY' in globals() and OPENAI_LEGACY:
+                    # For older versions (<1.0.0)
+                    openai.api_key = self.api_key
+                else:
+                    # For newer versions (>=1.0.0)
+                    self.client = openai.OpenAI(api_key=self.api_key)
             except Exception as e:
                 logger.error(f"Failed to initialize OpenAI client: {e}")
                 self.openai_available = False
+                
+    def _call_openai_api(self, messages, temperature=0.2):
+        """Call OpenAI API with version handling."""
+        try:
+            if 'OPENAI_LEGACY' in globals() and OPENAI_LEGACY:
+                # Legacy API call (< 1.0.0)
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    temperature=temperature
+                )
+                return response.choices[0].message.content
+            else:
+                # Modern API call (>= 1.0.0)
+                response = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    temperature=temperature
+                )
+                return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Error calling OpenAI API: {e}")
+            raise
     
     def analyze_test_failure(self,
                            test_name: str,
@@ -100,17 +143,10 @@ class AITestAnalyzer:
                 """
                 
                 # Call the AI
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a test automation expert that analyzes test failures."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.2
-                )
-                
-                # Parse the response
-                content = response.choices[0].message.content
+                content = self._call_openai_api([
+                    {"role": "system", "content": "You are a test automation expert that analyzes test failures."},
+                    {"role": "user", "content": prompt}
+                ])
                 
                 # Try to extract JSON from the response
                 json_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
@@ -245,17 +281,10 @@ class AITestAnalyzer:
                 Output in JSON format with these fields.
                 """
                 
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a test analytics expert that identifies patterns in test results."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.2
-                )
-                
-                # Extract the response
-                content = response.choices[0].message.content
+                content = self._call_openai_api([
+                    {"role": "system", "content": "You are a test analytics expert that identifies patterns in test results."},
+                    {"role": "user", "content": prompt}
+                ])
                 
                 # Try to extract JSON from the response
                 json_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
@@ -392,17 +421,10 @@ class AITestAnalyzer:
                 Output in JSON format with these fields.
                 """
                 
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a test automation expert that suggests test improvements."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.3
-                )
-                
-                # Extract the response
-                content = response.choices[0].message.content
+                content = self._call_openai_api([
+                    {"role": "system", "content": "You are a test automation expert that suggests test improvements."},
+                    {"role": "user", "content": prompt}
+                ])
                 
                 # Try to extract JSON from the response
                 json_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)

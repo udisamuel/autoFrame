@@ -10,11 +10,25 @@ logger = logging.getLogger(__name__)
 
 # Check if OpenAI is available
 OPENAI_AVAILABLE = False
+OPENAI_VERSION = None
 try:
     import openai
+    import pkg_resources
     OPENAI_AVAILABLE = True
+    OPENAI_VERSION = pkg_resources.get_distribution("openai").version
+    logger.info(f"Found OpenAI package version {OPENAI_VERSION}")
+    
+    # Check if it's a legacy version
+    if OPENAI_VERSION.startswith('0.'):
+        OPENAI_LEGACY = True
+        logger.info("Using legacy OpenAI API")
+    else:
+        OPENAI_LEGACY = False
+        logger.info("Using modern OpenAI API")
 except ImportError:
     logger.warning("OpenAI package not found. AI data generation will use fallback methods.")
+except Exception as e:
+    logger.warning(f"Error detecting OpenAI version: {e}. Using fallback methods.")
 
 class AIDataGenerator:
     """Helper class for generating realistic test data using AI."""
@@ -26,10 +40,39 @@ class AIDataGenerator:
         
         if self.openai_available:
             try:
-                openai.api_key = self.api_key
+                # Configure OpenAI client based on version
+                if 'OPENAI_LEGACY' in globals() and OPENAI_LEGACY:
+                    # For older versions (<1.0.0)
+                    openai.api_key = self.api_key
+                else:
+                    # For newer versions (>=1.0.0)
+                    self.client = openai.OpenAI(api_key=self.api_key)
             except Exception as e:
                 logger.error(f"Failed to initialize OpenAI client: {e}")
                 self.openai_available = False
+    
+    def _call_openai_api(self, messages, temperature=0.7):
+        """Call OpenAI API with version handling."""
+        try:
+            if 'OPENAI_LEGACY' in globals() and OPENAI_LEGACY:
+                # Legacy API call (< 1.0.0)
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    temperature=temperature
+                )
+                return response.choices[0].message.content
+            else:
+                # Modern API call (>= 1.0.0)
+                response = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    temperature=temperature
+                )
+                return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Error calling OpenAI API: {e}")
+            raise
     
     def generate_user_profile(self, constraints: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -49,17 +92,11 @@ class AIDataGenerator:
                 
                 prompt = f"Generate a JSON object for a user profile {constraints_text}. Include name, email, age, address, and phone number fields."
                 
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a test data generator that outputs only valid JSON."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.7
-                )
+                content = self._call_openai_api([
+                    {"role": "system", "content": "You are a test data generator that outputs only valid JSON."},
+                    {"role": "user", "content": prompt}
+                ])
                 
-                # Extract and parse the JSON response
-                content = response.choices[0].message.content
                 # Extract the JSON part from the response if needed
                 json_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
                 if json_match:
@@ -142,17 +179,11 @@ class AIDataGenerator:
                 
                 prompt = f"Generate a valid JSON payload for a {method} request to {endpoint} endpoint {schema_text}."
                 
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a test data generator that outputs only valid JSON."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.7
-                )
+                content = self._call_openai_api([
+                    {"role": "system", "content": "You are a test data generator that outputs only valid JSON."},
+                    {"role": "user", "content": prompt}
+                ])
                 
-                # Extract and parse the JSON response
-                content = response.choices[0].message.content
                 # Extract the JSON part from the response
                 json_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
                 if json_match:
@@ -240,17 +271,11 @@ class AIDataGenerator:
                 
                 prompt = f"Generate a JSON array containing {count} {data_type} objects {constraints_text}. Each object should have appropriate fields for a {data_type}."
                 
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a test data generator that outputs only valid JSON arrays."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.7
-                )
+                content = self._call_openai_api([
+                    {"role": "system", "content": "You are a test data generator that outputs only valid JSON arrays."},
+                    {"role": "user", "content": prompt}
+                ])
                 
-                # Extract and parse the JSON response
-                content = response.choices[0].message.content
                 # Extract the JSON part from the response
                 json_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
                 if json_match:
@@ -397,17 +422,11 @@ class AIDataGenerator:
                 
                 prompt = f"Generate valid form data for a {form_name} form with these fields: {fields_text}. Return as JSON with the field names as keys."
                 
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a test data generator that outputs only valid JSON."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.7
-                )
+                content = self._call_openai_api([
+                    {"role": "system", "content": "You are a test data generator that outputs only valid JSON."},
+                    {"role": "user", "content": prompt}
+                ])
                 
-                # Extract and parse the JSON response
-                content = response.choices[0].message.content
                 # Extract the JSON part from the response
                 json_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
                 if json_match:
