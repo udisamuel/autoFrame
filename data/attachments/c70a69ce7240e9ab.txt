@@ -1,7 +1,7 @@
 Status: 200 OK
-Elapsed Time: 0.25s
+Elapsed Time: 0.04s
 Headers: {
-  "Date": "Sat, 10 May 2025 12:40:58 GMT",
+  "Date": "Sat, 10 May 2025 14:00:39 GMT",
   "Content-Type": "application/json; charset=utf-8",
   "Transfer-Encoding": "chunked",
   "Connection": "keep-alive",
@@ -23,9 +23,10 @@ Headers: {
   "X-Content-Type-Options": "nosniff",
   "Etag": "W/\"381-oHCFPDbKuZj7PWOE7Pi1OYchMYY\"",
   "Via": "1.1 vegur",
-  "Cf-Cache-Status": "REVALIDATED",
+  "Cf-Cache-Status": "HIT",
+  "Age": "4781",
   "Content-Encoding": "gzip",
-  "CF-RAY": "93d98215beb1faca-SJC",
+  "CF-RAY": "93d9f6cddbdb15b0-SJC",
   "alt-svc": "h3=\":443\"; ma=86400"
 }
 Body: [
