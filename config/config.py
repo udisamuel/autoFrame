@@ -48,6 +48,13 @@ class Config:
     AWS_SESSION_TOKEN = os.getenv('AWS_SESSION_TOKEN', '')
     AWS_ENDPOINT_URL = os.getenv('AWS_ENDPOINT_URL', '')
     
+    # AI Configuration
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+    AI_FEATURES_ENABLED = os.getenv("AI_FEATURES_ENABLED", "false").lower() == "true"
+    AI_DATA_GENERATION_ENABLED = os.getenv("AI_DATA_GENERATION_ENABLED", "false").lower() == "true"
+    AI_TEST_ANALYSIS_ENABLED = os.getenv("AI_TEST_ANALYSIS_ENABLED", "false").lower() == "true"
+    AI_TEST_GENERATION_ENABLED = os.getenv("AI_TEST_GENERATION_ENABLED", "false").lower() == "true"
+    
     # Ensure directories exist
     @classmethod
     def create_directories(cls):
