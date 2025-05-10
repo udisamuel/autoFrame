@@ -212,3 +212,85 @@ class PlaywrightWrapper:
             key: The key to press
         """
         self.page.keyboard.press(key)
+        
+    def drag_and_drop(self, source_selector: str, target_selector: str, 
+                      source_position: Optional[Dict[str, float]] = None,
+                      target_position: Optional[Dict[str, float]] = None) -> None:
+        """
+        Perform drag and drop from source element to target element.
+        
+        Args:
+            source_selector: The selector for the source element
+            target_selector: The selector for the target element
+            source_position: Optional position within source element (e.g. {'x': 0.5, 'y': 0.5} for center)
+            target_position: Optional position within target element (e.g. {'x': 0.5, 'y': 0.5} for center)
+        """
+        logger.info(f"Dragging from {source_selector} to {target_selector}")
+        
+        source = self.page.locator(source_selector)
+        target = self.page.locator(target_selector)
+        
+        # Default to center if no position specified
+        source_pos = source_position or {'x': 0.5, 'y': 0.5}
+        target_pos = target_position or {'x': 0.5, 'y': 0.5}
+        
+        # Perform the drag and drop operation
+        source.drag_to(target, 
+                       source_position=source_pos, 
+                       target_position=target_pos,
+                       timeout=self.timeout)
+    
+    def drag_to_coordinates(self, source_selector: str, x: int, y: int) -> None:
+        """
+        Drag an element to specific coordinates on the page.
+        
+        Args:
+            source_selector: The selector for the element to drag
+            x: The x-coordinate to drag to
+            y: The y-coordinate to drag to
+        """
+        logger.info(f"Dragging {source_selector} to coordinates ({x}, {y})")
+        
+        source = self.page.locator(source_selector)
+        
+        # First click and hold on the source element
+        source.hover()
+        self.page.mouse.down()
+        
+        # Move to destination coordinates
+        self.page.mouse.move(x, y)
+        
+        # Release the mouse to complete drag operation
+        self.page.mouse.up()
+        
+    def drag_by_offset(self, source_selector: str, x_offset: int, y_offset: int) -> None:
+        """
+        Drag an element by a specified offset from its current position.
+        
+        Args:
+            source_selector: The selector for the element to drag
+            x_offset: The horizontal offset to drag by (positive is right, negative is left)
+            y_offset: The vertical offset to drag by (positive is down, negative is up)
+        """
+        logger.info(f"Dragging {source_selector} by offset ({x_offset}, {y_offset})")
+        
+        source = self.page.locator(source_selector)
+        
+        # Get the bounding box of the source element
+        box = source.bounding_box()
+        if not box:
+            raise ValueError(f"Element {source_selector} not found or not visible")
+        
+        # Calculate starting position (center of element)
+        start_x = box['x'] + box['width'] / 2
+        start_y = box['y'] + box['height'] / 2
+        
+        # Calculate target position
+        target_x = start_x + x_offset
+        target_y = start_y + y_offset
+        
+        # Perform drag operation
+        self.page.mouse.move(start_x, start_y)
+        self.page.mouse.down()
+        self.page.mouse.move(target_x, target_y)
+        self.page.mouse.up()
