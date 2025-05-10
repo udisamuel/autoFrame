@@ -19,6 +19,7 @@ This automation framework provides a unified approach to testing various compone
 - **Cross-platform**: Works on any OS that supports Python
 - **Reliable Reporting**: Detailed reports with Allure, including screenshots and logs
 - **Environment-agnostic**: Use configuration files and environment variables for flexible deployment
+- **AI-Powered Testing**: Leverage artificial intelligence for test data generation, test case creation, and test result analysis
 - **Comprehensive Helpers**:
   - API testing with request and response validation
   - Database interactions with PostgreSQL and ClickHouse
@@ -29,6 +30,7 @@ This automation framework provides a unified approach to testing various compone
 
 - Python 3.11+
 - Dependencies as listed in `requirements.txt`
+- OpenAI API key (for AI capabilities)
 
 ## 🚀 Installation
 
@@ -85,6 +87,7 @@ Configuration options include:
 - API endpoints
 - Database connection details
 - AWS credentials and region
+- AI configuration (OpenAI API key, feature toggles)
 - Timeouts and other test parameters
 
 ## 🔬 Running Tests
@@ -145,10 +148,23 @@ pytest
 allure serve reports/allure-results
 ```
 
+### Using AI capabilities
+```bash
+# Generate test data with AI
+./ai_cli.py generate-data --type user --count 5 --output data/users.json
+
+# Generate test cases with AI
+./ai_cli.py generate-test --type api --endpoint /users --method GET
+
+# Analyze test failures with AI
+./ai_cli.py analyze-failure --test-name test_login --error "AssertionError"
+```
+
 ## 📚 Documentation
 
 - [Pytest-xdist Usage Guide](docs/pytest_xdist_usage.md): Quick reference for parallel test execution
 - [Pytest-xdist Best Practices](docs/pytest_xdist_best_practices.md): Comprehensive guide to test isolation
+- [AI Capabilities](docs/ai_capabilities.md): Detailed guide on using AI features for testing
 
 ## 📁 Project Structure
 
@@ -172,13 +188,18 @@ automation_framework/
 │   ├── test_api_sample.py      # API test examples
 │   ├── test_aws_sample.py      # AWS integration test examples
 │   ├── test_db_sample.py       # Database test examples
-│   └── test_sample.py          # General test examples
+│   ├── test_sample.py          # General test examples
+│   ├── test_api_with_ai.py     # AI-assisted API test examples
+│   └── test_ui_with_ai.py      # AI-assisted UI test examples
 ├── utils/                      # Helper utilities
 │   ├── __init__.py
 │   ├── api_helper.py           # API testing utilities
 │   ├── aws_helper.py           # AWS service interactions
 │   ├── db_helper.py            # Database interactions
-│   └── playwright_wrapper.py   # UI automation utilities
+│   ├── playwright_wrapper.py   # UI automation utilities
+│   ├── ai_data_generator.py    # AI test data generation
+│   ├── ai_test_generator.py    # AI test case generation
+│   └── ai_test_analyzer.py     # AI test result analysis
 ├── .env.example                # Environment variable template
 ├── .gitignore                  # Git ignore file
 ├── pytest.ini                  # Pytest configuration
@@ -189,6 +210,14 @@ automation_framework/
 ```
 
 ## 🧩 Framework Components
+
+### AI Capabilities
+The framework integrates AI-powered capabilities to enhance testing workflows:
+- **Enhanced Test Data Generation**: Create realistic test data using AI with `AIDataGenerator`
+- **AI-powered Test Case Generation**: Automatically generate test cases for API, UI, and database testing with `AITestGenerator`
+- **Intelligent Test Result Analysis**: Analyze test failures to identify root causes and suggest fixes with `AITestAnalyzer`
+- Access these capabilities via Python API or command-line interface (`ai_cli.py`)
+- See the [AI Capabilities Documentation](docs/ai_capabilities.md) for detailed usage instructions
 
 ### API Testing
 The `APIHelper` and `APIAssert` classes provide utilities for API testing, including:
