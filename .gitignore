@@ -24,3 +24,6 @@ htmlcov/
 
 # Logs
 *.log
+
+# Coverage reports
+tests/reports/
