@@ -30,7 +30,7 @@ def pytest_configure(config):
 
 @pytest.fixture(scope="function")
 def _setup(playwright: Playwright):
-    browser = playwright.chromium.launch(headless=True)
+    browser = playwright.chromium.launch(headless=False)
     context = browser.new_context()
     page = context.new_page()
     
@@ -112,8 +112,11 @@ def pytest_runtest_makereport(item, call):
                         if hasattr(call.excinfo.value, "response"):
                             try:
                                 response_data = call.excinfo.value.response.json()
-                            except:
-                                response_data = call.excinfo.value.response.text
+                            except Exception as resp_err:
+                                try:
+                                    response_data = call.excinfo.value.response.text
+                                except Exception:
+                                    response_data = f"Could not extract response data: {str(resp_err)}"
                         
                         # Analyze the failure
                         analysis = ai_test_analyzer.analyze_test_failure(
@@ -138,7 +141,13 @@ def pytest_runtest_makereport(item, call):
                             print(f"- {fix}")
                         
                     except Exception as e:
-                        print(f"Error in AI test analysis: {str(e)}")
+                        error_msg = f"Error in AI test analysis: {str(e)}"
+                        print(error_msg)
+                        allure.attach(
+                            error_msg,
+                            name="AI Analysis Error",
+                            attachment_type=allure.attachment_type.TEXT
+                        )
         except Exception as e:
             print(f"Error taking screenshot: {str(e)}")
             allure.attach(
