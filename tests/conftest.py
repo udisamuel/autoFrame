@@ -30,7 +30,7 @@ def pytest_configure(config):
 
 @pytest.fixture(scope="function")
 def _setup(playwright: Playwright):
-    browser = playwright.chromium.launch(headless=False)
+    browser = playwright.chromium.launch(headless=True)
     context = browser.new_context()
     page = context.new_page()
     
