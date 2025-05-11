@@ -69,9 +69,14 @@ def pytest_runtest_makereport(item, call):
     outcome = yield
     report = outcome.get_result()
     
-    # We need to capture screenshots for failed tests
+    # We need to capture screenshots for failed tests, unless it's a simulated test
     if report.when == "call" and report.failed:
         try:
+            # Skip simulated tests - they handle their own analysis
+            if item.name == "test_automatic_analyzer" and "TestAIAnalyzer" in item.nodeid:
+                print(f"Skipping automatic analysis for simulated test: {item.nodeid}")
+                return
+                
             # Get the page object from the _setup fixture
             page = item.funcargs.get("_setup", None)
             if page:
