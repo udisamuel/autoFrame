@@ -1,2 +1,0 @@
-Query: SELECT id, user_id, title, body FROM posts_test_0e938494 WHERE id = %s
-Parameters: (101,)

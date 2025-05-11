@@ -1,4 +1,0 @@
-Query: 
-        UPDATE posts_test_77458de1 SET title = %s, body = %s WHERE id = %s
-        
-Parameters: ('Updated Post Title', 'This post was updated via the API', 1)

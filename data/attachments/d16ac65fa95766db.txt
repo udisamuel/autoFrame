@@ -1,2 +1,0 @@
-Query: SELECT title, body FROM posts_test_77458de1 WHERE id = 1
-Parameters: None
