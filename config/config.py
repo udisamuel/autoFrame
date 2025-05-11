@@ -50,6 +50,7 @@ class Config:
     
     # AI Configuration
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
     AI_FEATURES_ENABLED = os.getenv("AI_FEATURES_ENABLED", "false").lower() == "true"
     AI_DATA_GENERATION_ENABLED = os.getenv("AI_DATA_GENERATION_ENABLED", "false").lower() == "true"
     AI_TEST_ANALYSIS_ENABLED = os.getenv("AI_TEST_ANALYSIS_ENABLED", "false").lower() == "true"

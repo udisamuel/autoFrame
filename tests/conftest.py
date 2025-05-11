@@ -69,9 +69,14 @@ def pytest_runtest_makereport(item, call):
     outcome = yield
     report = outcome.get_result()
     
-    # We need to capture screenshots for failed tests
+    # We need to capture screenshots for failed tests, unless it's a simulated test
     if report.when == "call" and report.failed:
         try:
+            # Skip simulated tests - they handle their own analysis
+            if item.name == "test_automatic_analyzer" and "TestAIAnalyzer" in item.nodeid:
+                print(f"Skipping automatic analysis for simulated test: {item.nodeid}")
+                return
+                
             # Get the page object from the _setup fixture
             page = item.funcargs.get("_setup", None)
             if page:
@@ -112,8 +117,11 @@ def pytest_runtest_makereport(item, call):
                         if hasattr(call.excinfo.value, "response"):
                             try:
                                 response_data = call.excinfo.value.response.json()
-                            except:
-                                response_data = call.excinfo.value.response.text
+                            except Exception as resp_err:
+                                try:
+                                    response_data = call.excinfo.value.response.text
+                                except Exception:
+                                    response_data = f"Could not extract response data: {str(resp_err)}"
                         
                         # Analyze the failure
                         analysis = ai_test_analyzer.analyze_test_failure(
@@ -138,7 +146,13 @@ def pytest_runtest_makereport(item, call):
                             print(f"- {fix}")
                         
                     except Exception as e:
-                        print(f"Error in AI test analysis: {str(e)}")
+                        error_msg = f"Error in AI test analysis: {str(e)}"
+                        print(error_msg)
+                        allure.attach(
+                            error_msg,
+                            name="AI Analysis Error",
+                            attachment_type=allure.attachment_type.TEXT
+                        )
         except Exception as e:
             print(f"Error taking screenshot: {str(e)}")
             allure.attach(

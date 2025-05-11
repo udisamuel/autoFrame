@@ -13,7 +13,8 @@ class AIDataGenerator:
     def __init__(self, api_key: Optional[str] = None):
         """Initialize with optional API key, otherwise use from config."""
         self.api_key = api_key or Config.OPENAI_API_KEY
-        openai.api_key = self.api_key
+        self.client = openai.OpenAI(api_key=self.api_key)
+        self.model = Config.OPENAI_MODEL or "gpt-3.5-turbo"
     
     def generate_user_profile(self, constraints: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -32,8 +33,8 @@ class AIDataGenerator:
         prompt = f"Generate a JSON object for a user profile {constraints_text}. Include name, email, age, address, and phone number fields."
         
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+            response = self.client.chat.completions.create(
+                model=self.model,
                 messages=[
                     {"role": "system", "content": "You are a test data generator that outputs only valid JSON."},
                     {"role": "user", "content": prompt}
@@ -91,8 +92,8 @@ class AIDataGenerator:
         prompt = f"Generate a valid JSON payload for a {method} request to {endpoint} endpoint {schema_text}."
         
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+            response = self.client.chat.completions.create(
+                model=self.model,
                 messages=[
                     {"role": "system", "content": "You are a test data generator that outputs only valid JSON."},
                     {"role": "user", "content": prompt}
@@ -138,8 +139,8 @@ class AIDataGenerator:
         prompt = f"Generate a JSON array containing {count} {data_type} objects {constraints_text}. Each object should have appropriate fields for a {data_type}."
         
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+            response = self.client.chat.completions.create(
+                model=self.model,
                 messages=[
                     {"role": "system", "content": "You are a test data generator that outputs only valid JSON arrays."},
                     {"role": "user", "content": prompt}
@@ -188,8 +189,8 @@ class AIDataGenerator:
         prompt = f"Generate valid form data for a {form_name} form with these fields: {fields_text}. Return as JSON with the field names as keys."
         
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+            response = self.client.chat.completions.create(
+                model=self.model,
                 messages=[
                     {"role": "system", "content": "You are a test data generator that outputs only valid JSON."},
                     {"role": "user", "content": prompt}
