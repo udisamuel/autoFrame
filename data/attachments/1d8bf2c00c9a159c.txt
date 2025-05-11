@@ -1,0 +1,6 @@
+Query: 
+                INSERT INTO posts_test_7413db5c (id, user_id, title, body) VALUES
+                (1, 1, 'Initial Post', 'This is the initial post content')
+                ON CONFLICT (id) DO NOTHING
+                
+Parameters: None

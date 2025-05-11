@@ -1,0 +1,2 @@
+Query: DELETE FROM posts_test_7413db5c WHERE id = 1
+Parameters: None

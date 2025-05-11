@@ -1,2 +1,0 @@
-Query: DROP TABLE posts
-Parameters: None
