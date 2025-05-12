@@ -1,2 +1,0 @@
-Query: DROP TABLE IF EXISTS posts_test_ef485c6b
-Parameters: None

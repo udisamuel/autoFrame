@@ -1,2 +1,0 @@
-Query: SELECT * FROM posts_test_b87c2564 WHERE id = 1
-Parameters: None

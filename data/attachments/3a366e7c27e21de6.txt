@@ -1,0 +1,2 @@
+Query: SELECT id, user_id, title, body FROM posts_test_6af84584 WHERE id = %s
+Parameters: (101,)

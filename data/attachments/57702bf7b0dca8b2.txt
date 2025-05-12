@@ -1,0 +1,2 @@
+Query: SELECT * FROM posts_test_9c949bfe WHERE id = 1
+Parameters: None
