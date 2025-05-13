@@ -25,6 +25,7 @@ This automation framework provides a unified approach to testing various compone
   - Database interactions with PostgreSQL and ClickHouse
   - AWS service interactions with S3 and more
   - Web UI automation with Playwright
+  - Performance timing utilities for measuring execution times
 
 ## 📋 Requirements
 
@@ -197,6 +198,7 @@ automation_framework/
 │   ├── aws_helper.py           # AWS service interactions
 │   ├── db_helper.py            # Database interactions
 │   ├── playwright_wrapper.py   # UI automation utilities
+│   ├── timer.py                # Performance timing utilities
 │   ├── ai_data_generator.py    # AI test data generation
 │   ├── ai_test_generator.py    # AI test case generation
 │   └── ai_test_analyzer.py     # AI test result analysis
@@ -245,6 +247,80 @@ UI automation with Playwright:
 - Element interaction (click, fill, select)
 - Navigation and waiting utilities
 - Screenshot capture
+
+### Performance Timing
+The `Timer` class provides a convenient way to measure and report execution times:
+- Context manager for easy timing of code blocks
+- Integration with Allure reporting
+- Statistics collection for performance analysis
+- Named timers for tracking multiple operations
+
+#### Timer Examples
+
+**Basic Usage:**
+```python
+from utils.timer import Timer
+
+# Simple timing of a code block
+with Timer("Database Query"):
+    # Your code to be timed here
+    results = db.execute_complex_query()
+
+# The elapsed time will be logged and added to Allure report
+```
+
+**Statistics Collection:**
+```python
+from utils.timer import Timer
+import time
+
+# Time multiple operations and collect statistics
+for i in range(10):
+    with Timer("API Call", store_stats=True):
+        # Simulate API call
+        time.sleep(0.1)
+        
+# Get statistics for all timers
+stats = Timer.get_stats()
+print(f"API Call Statistics: {stats['API Call']}")
+
+# Add statistics to Allure report
+Timer.add_stats_to_allure()
+```
+
+**Nested Timers:**
+```python
+from utils.timer import Timer
+
+# Measure overall test execution
+with Timer("Total Test Time"):
+    # Some setup code
+    setup_data = prepare_test_data()
+    
+    # Measure specific operations within the test
+    with Timer("API Request"):
+        response = api.post("/endpoint", json_data=payload)
+    
+    with Timer("Database Verification"):
+        db_result = db.verify_data_was_saved()
+        
+    # Additional steps...
+```
+
+**Custom Logging:**
+```python
+from utils.timer import Timer
+import logging
+
+# Create a custom logger
+logger = logging.getLogger("performance_tests")
+logger.setLevel(logging.DEBUG)
+
+# Use the custom logger with the timer
+with Timer("Performance Critical Operation", log_level=logging.DEBUG, logger=logger):
+    # Critical operation to be timed with custom logging
+    result = perform_critical_operation()
+```
 
 ## 🔧 Extending the Framework
 
