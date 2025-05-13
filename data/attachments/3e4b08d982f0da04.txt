@@ -1,0 +1,9 @@
+Query: 
+                CREATE TABLE IF NOT EXISTS posts_test_0ecd276e (
+                    id INTEGER PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    body TEXT NOT NULL
+                )
+                
+Parameters: None

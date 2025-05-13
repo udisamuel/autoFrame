@@ -1,0 +1,4 @@
+Query: 
+        INSERT INTO posts_test_0ecd276e (id, user_id, title, body) VALUES (%s, %s, %s, %s)
+        
+Parameters: (101, 1, 'Test Post via API', 'This post was created via the API and should be in the database')

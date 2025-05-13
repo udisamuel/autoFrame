@@ -1,2 +1,0 @@
-Query: DELETE FROM posts_test_04ae744f WHERE id = 1
-Parameters: None
