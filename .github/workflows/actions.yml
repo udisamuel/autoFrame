@@ -62,14 +62,18 @@ jobs:
         mkdir -p reports/allure-results
         mkdir -p reports/xray-results
         # Configure Xray for pytest 7.x
-        echo '[pytest]
-xray_base_url = "$JIRA_URL"
-xray_username = "$JIRA_USERNAME"
-xray_password = "$JIRA_PASSWORD"
-xray_client_id = "$XRAY_CLIENT_ID"
-xray_client_secret = "$XRAY_CLIENT_SECRET"
-xray_test_plan_key = "$XRAY_TESTPLAN_KEY"
-xray_output_path = "reports/xray-results/xray-report.json"' > xray_config.ini
+        cat > xray_config.ini << EOF
+        [pytest]
+        xray_base_url = "${JIRA_URL}"
+        xray_username = "${JIRA_USERNAME}"
+        xray_password = "${JIRA_PASSWORD}"
+        xray_client_id = "${XRAY_CLIENT_ID}"
+        xray_client_secret = "${XRAY_CLIENT_SECRET}"
+        xray_test_plan_key = "${XRAY_TESTPLAN_KEY}"
+        xray_output_path = "reports/xray-results/xray-report.json"
+        EOF
+        
+        cat xray_config.ini
         
         # GitHub Actions runners typically have 2 cores
         # Disable assertion rewriting to avoid the lineno error
@@ -127,7 +131,7 @@ xray_output_path = "reports/xray-results/xray-report.json"' > xray_config.ini
       if: failure() && hashFiles('reports/allure-results/**') != ''
       run: |
         # Convert Allure results to Xray format
-        python -c "
+        python - << 'EOF'
         import json
         import os
         import glob
@@ -178,11 +182,11 @@ xray_output_path = "reports/xray-results/xray-report.json"' > xray_config.ini
         # Write the Xray report
         with open('reports/xray-results/xray-report-fallback.json', 'w') as f:
             json.dump(xray_report, f, indent=2)
-        "
+        EOF
         
         # Upload to Xray using curl
         curl -H "Content-Type: application/json" \
              -X POST \
              -u "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" \
              --data @reports/xray-results/xray-report-fallback.json \
-             "${{ secrets.JIRA_URL }}/rest/api/2/import/execution"
+             "${{ secrets.JIRA_URL }}/rest/raven/1.0/import/execution"
