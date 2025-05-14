@@ -275,7 +275,7 @@ jobs:
           echo "\nReformatting for Xray Server and trying again..."
           
           # Convert our report format to Xray Server format
-          python - << 'EOF'
+          python3 - <<EOF
           import json
           import os
           
@@ -338,7 +338,7 @@ jobs:
           echo "\nAttempting direct test execution creation via Jira API..."
           
           # Convert to direct Jira issue creation format
-          python - << 'EOF'
+          python3 - <<EOF
           import json
           import os
           import uuid
@@ -401,12 +401,12 @@ jobs:
               cat execution_response.json
               
               # Extract the execution key
-              EXECUTION_KEY=$(python -c "import json; print(json.load(open('execution_response.json'))['key'])")
+              EXECUTION_KEY=$(python3 -c "import json; print(json.load(open('execution_response.json'))['key'])")
               echo "Created Test Execution: $EXECUTION_KEY"
               
               # Now associate tests with the execution
               echo "\nAssociating tests with the execution..."
-              for TEST_KEY in $(python -c "import json; print(' '.join([t['testKey'] for t in json.load(open('reports/xray-results/xray-report.json'))['tests']]))")
+              for TEST_KEY in $(python3 -c "import json; print(' '.join([t['testKey'] for t in json.load(open('reports/xray-results/xray-report.json'))['tests']]))")
               do
                 echo "Adding test $TEST_KEY to execution $EXECUTION_KEY"
                 
