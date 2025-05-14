@@ -229,6 +229,134 @@ jobs:
         publish_dir: ./reports/allure-report
         publish_branch: gh-pages
         
+    - name: Create Python Scripts for Xray
+      if: always()  # Run even if tests fail
+      run: |
+        # Create formatting script
+        mkdir -p scripts
+        cat > scripts/format_xray_report.py << 'EOF'
+        import json
+        import os
+        
+        try:
+            with open('reports/xray-results/xray-report.json', 'r') as f:
+                report = json.load(f)
+            
+            # Extract test data
+            test_info = report.get('info', {})
+            tests = report.get('tests', [])
+            
+            # Create Xray Server format (different from Cloud)
+            server_format = {
+                "testExecutionKey": "",  # Will be created by Xray
+                "info": {
+                    "summary": test_info.get('summary', 'Test Execution from GitHub CI'),
+                    "description": test_info.get('description', 'Automated test execution')
+                },
+                "tests": []
+            }
+            
+            # Convert test entries
+            for test in tests:
+                server_format["tests"].append({
+                    "testKey": test.get("testKey", ""),
+                    "status": test.get("status", "FAIL"),
+                    "comment": test.get("comment", "")
+                })
+            
+            # Write the reformatted report
+            with open('reports/xray-results/xray-server-report.json', 'w') as f:
+                json.dump(server_format, f, indent=2)
+            
+            print("Successfully reformatted the report for Xray Server")
+        except Exception as e:
+            print(f"Error reformatting report: {str(e)}")
+        EOF
+        
+        # Create Jira execution script
+        cat > scripts/create_jira_execution.py << 'EOF'
+        import json
+        import os
+        import uuid
+        
+        try:
+            with open('reports/xray-results/xray-report.json', 'r') as f:
+                report = json.load(f)
+            
+            # Extract test data
+            test_info = report.get('info', {})
+            tests = report.get('tests', [])
+            
+            if len(tests) == 0:
+                print("No tests to report")
+                exit(0)
+            
+            # Get a test key to determine project
+            first_test = tests[0].get("testKey", "")
+            project_key = first_test.split("-")[0] if "-" in first_test else ""
+            
+            if not project_key:
+                print("Could not determine project key from test IDs")
+                exit(1)
+            
+            # Create a direct Jira issue creation payload
+            jira_payload = {
+                "fields": {
+                    "project": {
+                        "key": project_key
+                    },
+                    "summary": test_info.get('summary', f"Test Execution {str(uuid.uuid4())[:8]}"),
+                    "description": test_info.get('description', 'Automated test execution'),
+                    "issuetype": {
+                        "name": "Test Execution"
+                    }
+                }
+            }
+            
+            # Write the Jira issue creation payload
+            with open('reports/xray-results/jira-execution.json', 'w') as f:
+                json.dump(jira_payload, f, indent=2)
+            
+            print("Successfully created Jira issue creation payload")
+        except Exception as e:
+            print(f"Error creating Jira payload: {str(e)}")
+        EOF
+        
+        # Create test keys extraction script
+        cat > scripts/extract_test_keys.py << 'EOF'
+        import json
+        import sys
+        
+        try:
+            with open('reports/xray-results/xray-report.json', 'r') as f:
+                report = json.load(f)
+            
+            tests = report.get('tests', [])
+            test_keys = [t['testKey'] for t in tests]
+            
+            print(' '.join(test_keys))
+        except Exception as e:
+            print(f"Error extracting test keys: {str(e)}", file=sys.stderr)
+            print("")
+        EOF
+        
+        # Create execution key extraction script
+        cat > scripts/extract_execution_key.py << 'EOF'
+        import json
+        import sys
+        
+        try:
+            with open('execution_response.json', 'r') as f:
+                response = json.load(f)
+            
+            print(response['key'])
+        except Exception as e:
+            print(f"Error extracting execution key: {str(e)}", file=sys.stderr)
+            print("")
+        EOF
+        
+        chmod +x scripts/*.py
+        
     - name: Upload Xray Test Results to Jira
       if: always()  # Upload results even if tests fail
       run: |
@@ -274,45 +402,8 @@ jobs:
           # 3. Try a custom JSON format for Xray server format
           echo "\nReformatting for Xray Server and trying again..."
           
-          # Convert our report format to Xray Server format
-          python3 - <<EOF
-          import json
-          import os
-          
-          try:
-              with open('reports/xray-results/xray-report.json', 'r') as f:
-                  report = json.load(f)
-              
-              # Extract test data
-              test_info = report.get('info', {})
-              tests = report.get('tests', [])
-              
-              # Create Xray Server format (different from Cloud)
-              server_format = {
-                  "testExecutionKey": "",  # Will be created by Xray
-                  "info": {
-                      "summary": test_info.get('summary', 'Test Execution from GitHub CI'),
-                      "description": test_info.get('description', 'Automated test execution')
-                  },
-                  "tests": []
-              }
-              
-              # Convert test entries
-              for test in tests:
-                  server_format["tests"].append({
-                      "testKey": test.get("testKey", ""),
-                      "status": test.get("status", "FAIL"),
-                      "comment": test.get("comment", "")
-                  })
-              
-              # Write the reformatted report
-              with open('reports/xray-results/xray-server-report.json', 'w') as f:
-                  json.dump(server_format, f, indent=2)
-              
-              print("Successfully reformatted the report for Xray Server")
-          except Exception as e:
-              print(f"Error reformatting report: {str(e)}")
-          EOF
+          # Run the formatting script
+          python3 scripts/format_xray_report.py
           
           if [ -f "reports/xray-results/xray-server-report.json" ]; then
             echo "Content of xray-server-report.json:"
@@ -337,54 +428,8 @@ jobs:
           # 4. Create test execution directly via Jira API
           echo "\nAttempting direct test execution creation via Jira API..."
           
-          # Convert to direct Jira issue creation format
-          python3 - <<EOF
-          import json
-          import os
-          import uuid
-          
-          try:
-              with open('reports/xray-results/xray-report.json', 'r') as f:
-                  report = json.load(f)
-              
-              # Extract test data
-              test_info = report.get('info', {})
-              tests = report.get('tests', [])
-              
-              if len(tests) == 0:
-                  print("No tests to report")
-                  exit(0)
-              
-              # Get a test key to determine project
-              first_test = tests[0].get("testKey", "")
-              project_key = first_test.split("-")[0] if "-" in first_test else ""
-              
-              if not project_key:
-                  print("Could not determine project key from test IDs")
-                  exit(1)
-              
-              # Create a direct Jira issue creation payload
-              jira_payload = {
-                  "fields": {
-                      "project": {
-                          "key": project_key
-                      },
-                      "summary": test_info.get('summary', f"Test Execution {str(uuid.uuid4())[:8]}"),
-                      "description": test_info.get('description', 'Automated test execution'),
-                      "issuetype": {
-                          "name": "Test Execution"
-                      }
-                  }
-              }
-              
-              # Write the Jira issue creation payload
-              with open('reports/xray-results/jira-execution.json', 'w') as f:
-                  json.dump(jira_payload, f, indent=2)
-              
-              print("Successfully created Jira issue creation payload")
-          except Exception as e:
-              print(f"Error creating Jira payload: {str(e)}")
-          EOF
+          # Run the Jira execution script
+          python3 scripts/create_jira_execution.py
           
           if [ -f "reports/xray-results/jira-execution.json" ]; then
             echo "Content of jira-execution.json:"
@@ -401,12 +446,12 @@ jobs:
               cat execution_response.json
               
               # Extract the execution key
-              EXECUTION_KEY=$(python3 -c "import json; print(json.load(open('execution_response.json'))['key'])")
+              EXECUTION_KEY=$(python3 scripts/extract_execution_key.py)
               echo "Created Test Execution: $EXECUTION_KEY"
               
               # Now associate tests with the execution
               echo "\nAssociating tests with the execution..."
-              for TEST_KEY in $(python3 -c "import json; print(' '.join([t['testKey'] for t in json.load(open('reports/xray-results/xray-report.json'))['tests']]))")
+              for TEST_KEY in $(python3 scripts/extract_test_keys.py)
               do
                 echo "Adding test $TEST_KEY to execution $EXECUTION_KEY"
                 
