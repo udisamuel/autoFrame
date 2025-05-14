@@ -309,7 +309,7 @@ jobs:
         retention-days: 30
 
     - name: Update Jira Issue
-      if: always() && fileExists('jira_issue_key.txt')
+      if: always()
       run: |
         # Check if we have a Jira issue to update
         if [ -f "jira_issue_key.txt" ]; then
