@@ -37,7 +37,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .
         pip install -r requirements.txt
-        pip install pytest-xray  # Install pytest-xray plugin
+        # Install a compatible version of pytest-xray
+        pip install pytest-xray==0.18.0
 
     - name: Install Playwright browsers
       run: |
@@ -55,7 +56,8 @@ jobs:
         mkdir -p reports/allure-results
         mkdir -p reports/xray-results
         # GitHub Actions runners typically have 2 cores
-        python -m pytest tests -n 2 --alluredir=reports/allure-results --dist=loadfile --xray --xray-testplan-key="$XRAY_TESTPLAN_KEY" --jira-xray-base-url="$JIRA_URL" --xray-output-path="reports/xray-results/xray-report.json"
+        # Disable assertion rewriting to avoid the lineno error
+        PYTHONDONTWRITEBYTECODE=1 python -m pytest tests -n 2 --alluredir=reports/allure-results --dist=loadfile --xray --xray-testplan-key="$XRAY_TESTPLAN_KEY" --jira-xray-base-url="$JIRA_URL" --xray-output-path="reports/xray-results/xray-report.json"
       env:
         POSTGRES_HOST: localhost
         POSTGRES_PORT: 5432
@@ -103,3 +105,68 @@ jobs:
         xrayBaseUrl: ${{ secrets.JIRA_URL }}
         testExecKey: ''
         report: reports/xray-results/xray-report.json
+        
+    # Fallback approach in case the pytest-xray plugin fails
+    - name: Alternative Xray Test Results Upload
+      if: failure() && hashFiles('reports/allure-results/**') != ''
+      run: |
+        # Convert Allure results to Xray format
+        python -c "
+        import json
+        import os
+        import glob
+        
+        # Create a simple Xray JSON structure
+        xray_report = {
+            'info': {
+                'summary': 'Test Execution from GitHub CI',
+                'description': 'Automated test execution from GitHub Actions workflow'
+            },
+            'tests': []
+        }
+        
+        # Process Allure result files
+        for result_file in glob.glob('reports/allure-results/*.json'):
+            if 'result' not in result_file:
+                continue
+                
+            try:
+                with open(result_file, 'r') as f:
+                    result = json.load(f)
+                    
+                # Extract test case info - you'll need to adapt this
+                # to match your actual test naming convention
+                full_name = result.get('fullName', '')
+                test_key = ''
+                
+                # Extract PROJ-123 style keys from test name or labels
+                # This assumes test names or markers contain the Xray test ID
+                import re
+                match = re.search(r'([A-Z]+-\d+)', full_name)
+                if match:
+                    test_key = match.group(1)
+                
+                # Process test status
+                status = 'PASS' if result.get('status') == 'passed' else 'FAIL'
+                
+                # Only add tests with valid test keys
+                if test_key:
+                    xray_report['tests'].append({
+                        'testKey': test_key,
+                        'status': status,
+                        'comment': f'Execution from GitHub CI pipeline'
+                    })
+            except Exception as e:
+                print(f'Error processing {result_file}: {str(e)}')
+        
+        # Write the Xray report
+        with open('reports/xray-results/xray-report-fallback.json', 'w') as f:
+            json.dump(xray_report, f, indent=2)
+        "
+        
+        # Upload to Xray using curl
+        curl -H "Content-Type: application/json" \
+             -X POST \
+             -u "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" \
+             --data @reports/xray-results/xray-report-fallback.json \
+             "${{ secrets.JIRA_URL }}/rest/api/2/import/execution"
