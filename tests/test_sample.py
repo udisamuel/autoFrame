@@ -7,6 +7,7 @@ from utils.timer import Timer
 @pytest.mark.sample
 class TestSample:
 
+    @pytest.mark.xray("AUTOFRAME-1")
     @allure.story("Sample Test")
     @allure.severity(allure.severity_level.NORMAL)
     @allure.description("Test sample functionality")
@@ -20,4 +21,6 @@ class TestSample:
 
             # Navigate to the home page
             mp.navigate_to_home()
+
+        assert True
 

@@ -1,4 +1,4 @@
-name: Automation Framework CI
+name: Automation Framework CI with Xray Integration
 
 on:
   push:
@@ -37,6 +37,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .
         pip install -r requirements.txt
+        pip install pytest-xray  # Install pytest-xray plugin
 
     - name: Install Playwright browsers
       run: |
@@ -52,14 +53,21 @@ jobs:
     - name: Run tests
       run: |
         mkdir -p reports/allure-results
+        mkdir -p reports/xray-results
         # GitHub Actions runners typically have 2 cores
-        python -m pytest tests -n 2 --alluredir=reports/allure-results --dist=loadfile
+        python -m pytest tests -n 2 --alluredir=reports/allure-results --dist=loadfile --xray --xray-testplan-key="$XRAY_TESTPLAN_KEY" --jira-xray-base-url="$JIRA_URL" --xray-output-path="reports/xray-results/xray-report.json"
       env:
         POSTGRES_HOST: localhost
         POSTGRES_PORT: 5432
         POSTGRES_USER: postgres
         POSTGRES_PASSWORD: postgres
         POSTGRES_DB: testdb
+        JIRA_URL: ${{ secrets.JIRA_URL }}
+        JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+        JIRA_PASSWORD: ${{ secrets.JIRA_API_TOKEN }}
+        XRAY_CLIENT_ID: ${{ secrets.XRAY_CLIENT_ID }}
+        XRAY_CLIENT_SECRET: ${{ secrets.XRAY_CLIENT_SECRET }}
+        XRAY_TESTPLAN_KEY: ${{ github.event.inputs.testplan_key || '' }}
 
     - name: Generate Allure report
       if: always()  # Generate report even if tests fail
@@ -81,3 +89,17 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./reports/allure-report
         publish_branch: gh-pages
+        
+    - name: Upload Xray Test Results to Jira
+      if: always()  # Upload results even if tests fail
+      uses: mikepenz/xray-action@v2
+      with:
+        username: ${{ secrets.JIRA_USERNAME }}
+        password: ${{ secrets.JIRA_API_TOKEN }}
+        testEnvironments: 'GitHub CI'
+        testPlanKey: ${{ github.event.inputs.testplan_key || '' }}
+        projectKey: ${{ secrets.JIRA_PROJECT_KEY }}
+        xrayCloud: ${{ secrets.XRAY_CLOUD_ENABLED || 'true' }}
+        xrayBaseUrl: ${{ secrets.JIRA_URL }}
+        testExecKey: ''
+        report: reports/xray-results/xray-report.json
