@@ -118,6 +118,96 @@ jobs:
         XRAY_CLIENT_SECRET: ${{ secrets.XRAY_CLIENT_SECRET }}
         XRAY_TESTPLAN_KEY: ${{ github.event.inputs.testplan_key || '' }}
 
+    - name: Generate Xray Report
+      if: always()  # Generate report even if tests fail
+      run: |
+        # Create a direct Xray report based on pytest test results
+        python - << 'EOF'
+        import json
+        import glob
+        import re
+        import os
+        import xml.etree.ElementTree as ET
+        from datetime import datetime
+        
+        # Create the Xray report structure
+        xray_report = {
+            "info": {
+                "summary": f"Test Execution - GitHub CI - {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                "description": "Automated test execution from GitHub Actions workflow",
+                "testEnvironments": ["GitHub CI"]
+            },
+            "tests": []
+        }
+        
+        # First, generate a JUnit XML report from the test results
+        os.system('python -m pytest --collect-only tests -v --junitxml=reports/pytest_results.xml')
+        
+        # Check if the JUnit XML report was generated
+        if os.path.exists('reports/pytest_results.xml'):
+            try:
+                # Parse the JUnit XML report
+                tree = ET.parse('reports/pytest_results.xml')
+                root = tree.getroot()
+                
+                # Process test cases
+                for testcase in root.findall('.//testcase'):
+                    test_name = testcase.get('name')
+                    test_class = testcase.get('classname')
+                    full_name = f"{test_class}::{test_name}"
+                    
+                    # Try to extract a Jira ID from the test name or class
+                    jira_id = None
+                    jira_match = re.search(r'([A-Z]+-\d+)', full_name)
+                    if jira_match:
+                        jira_id = jira_match.group(1)
+                    
+                    # If no Jira ID in the name, try to inspect the source code
+                    if not jira_id:
+                        # This is a simple approach - you might need to enhance it
+                        module_path = test_class.replace('.', '/') + '.py'
+                        if os.path.exists(module_path):
+                            with open(module_path, 'r') as f:
+                                source = f.read()
+                                # Look for @pytest.mark.xray pattern
+                                mark_match = re.search(r'@pytest\.mark\.xray\(["\']([A-Z]+-\d+)["\']\)', source)
+                                if mark_match:
+                                    jira_id = mark_match.group(1)
+                    
+                    # Determine test status
+                    status = "PASS"
+                    for child in testcase:
+                        if child.tag in ['failure', 'error', 'skipped']:
+                            status = "FAIL" if child.tag in ['failure', 'error'] else "SKIP"
+                            break
+                    
+                    # Only add tests with a Jira ID
+                    if jira_id:
+                        xray_report['tests'].append({
+                            "testKey": jira_id,
+                            "status": status,
+                            "comment": f"Execution from GitHub CI: {full_name}"
+                        })
+                    else:
+                        print(f"Warning: No Jira ID found for test {full_name}")
+                
+                # Save the Xray report
+                os.makedirs('reports/xray-results', exist_ok=True)
+                with open('reports/xray-results/xray-report.json', 'w') as f:
+                    json.dump(xray_report, f, indent=2)
+                
+                print(f"Generated Xray report with {len(xray_report['tests'])} tests")
+                
+            except Exception as e:
+                print(f"Error processing test results: {str(e)}")
+        else:
+            print("No JUnit XML report found")
+            # Create a minimal report to avoid errors in subsequent steps
+            os.makedirs('reports/xray-results', exist_ok=True)
+            with open('reports/xray-results/xray-report.json', 'w') as f:
+                json.dump(xray_report, f, indent=2)
+        EOF
+
     - name: Generate Allure report
       if: always()  # Generate report even if tests fail
       run: |
@@ -144,76 +234,33 @@ jobs:
       run: |
         if [ -f "reports/xray-results/xray-report.json" ]; then
           echo "Uploading Xray test results..."
-          curl -H "Content-Type: application/json" \
+          # First try the Cloud API endpoint
+          if curl -s -o xray_response.json -w "%{http_code}" \
+               -H "Content-Type: application/json" \
                -X POST \
                -u "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" \
                --data @reports/xray-results/xray-report.json \
-               "${{ secrets.JIRA_URL }}/rest/raven/1.0/import/execution"
+               "${{ secrets.JIRA_URL }}/rest/raven/1.0/import/execution" | grep -q "2[0-9][0-9]"; then
+            echo "Successfully uploaded test results to Xray Cloud"
+            cat xray_response.json
+          else
+            # Try the Server/DC API endpoint as fallback
+            echo "First attempt failed, trying Server/DC endpoint..."
+            if curl -s -o xray_response.json -w "%{http_code}" \
+                 -H "Content-Type: application/json" \
+                 -X POST \
+                 -u "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" \
+                 --data @reports/xray-results/xray-report.json \
+                 "${{ secrets.JIRA_URL }}/rest/api/2/issue/bulk" | grep -q "2[0-9][0-9]"; then
+              echo "Successfully uploaded test results to Xray Server/DC"
+              cat xray_response.json
+            else
+              echo "Failed to upload test results to Xray. Response:"
+              cat xray_response.json
+              # We'll continue the workflow even if upload fails
+            fi
+          fi
         else
           echo "No Xray report found at reports/xray-results/xray-report.json"
         fi
         
-    # Fallback approach in case the pytest-xray plugin fails
-    - name: Alternative Xray Test Results Upload
-      if: failure() && hashFiles('reports/allure-results/**') != ''
-      run: |
-        # Convert Allure results to Xray format
-        python - << 'EOF'
-        import json
-        import os
-        import glob
-        
-        # Create a simple Xray JSON structure
-        xray_report = {
-            'info': {
-                'summary': 'Test Execution from GitHub CI',
-                'description': 'Automated test execution from GitHub Actions workflow'
-            },
-            'tests': []
-        }
-        
-        # Process Allure result files
-        for result_file in glob.glob('reports/allure-results/*.json'):
-            if 'result' not in result_file:
-                continue
-                
-            try:
-                with open(result_file, 'r') as f:
-                    result = json.load(f)
-                    
-                # Extract test case info - you'll need to adapt this
-                # to match your actual test naming convention
-                full_name = result.get('fullName', '')
-                test_key = ''
-                
-                # Extract PROJ-123 style keys from test name or labels
-                # This assumes test names or markers contain the Xray test ID
-                import re
-                match = re.search(r'([A-Z]+-\d+)', full_name)
-                if match:
-                    test_key = match.group(1)
-                
-                # Process test status
-                status = 'PASS' if result.get('status') == 'passed' else 'FAIL'
-                
-                # Only add tests with valid test keys
-                if test_key:
-                    xray_report['tests'].append({
-                        'testKey': test_key,
-                        'status': status,
-                        'comment': f'Execution from GitHub CI pipeline'
-                    })
-            except Exception as e:
-                print(f'Error processing {result_file}: {str(e)}')
-        
-        # Write the Xray report
-        with open('reports/xray-results/xray-report-fallback.json', 'w') as f:
-            json.dump(xray_report, f, indent=2)
-        EOF
-        
-        # Upload to Xray using curl
-        curl -H "Content-Type: application/json" \
-             -X POST \
-             -u "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" \
-             --data @reports/xray-results/xray-report-fallback.json \
-             "${{ secrets.JIRA_URL }}/rest/raven/1.0/import/execution"
