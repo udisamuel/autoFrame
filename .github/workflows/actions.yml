@@ -234,7 +234,13 @@ jobs:
       run: |
         if [ -f "reports/xray-results/xray-report.json" ]; then
           echo "Uploading Xray test results..."
-          # First try the Cloud API endpoint
+          echo "Content of xray-report.json:"
+          cat reports/xray-results/xray-report.json
+          
+          # Try different Xray API endpoints one by one
+          
+          # 1. Xray Cloud Import Execution endpoint
+          echo "\nTrying Xray Cloud Import Execution endpoint..."
           if curl -s -o xray_response.json -w "%{http_code}" \
                -H "Content-Type: application/json" \
                -X POST \
@@ -243,24 +249,189 @@ jobs:
                "${{ secrets.JIRA_URL }}/rest/raven/1.0/import/execution" | grep -q "2[0-9][0-9]"; then
             echo "Successfully uploaded test results to Xray Cloud"
             cat xray_response.json
+            exit 0
           else
-            # Try the Server/DC API endpoint as fallback
-            echo "First attempt failed, trying Server/DC endpoint..."
+            echo "Failed with this endpoint. Response:"
+            cat xray_response.json || echo "No response"
+          fi
+          
+          # 2. Xray Server Import Execution endpoint
+          echo "\nTrying Xray Server Import Execution endpoint..."
+          if curl -s -o xray_response.json -w "%{http_code}" \
+               -H "Content-Type: application/json" \
+               -X POST \
+               -u "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" \
+               --data @reports/xray-results/xray-report.json \
+               "${{ secrets.JIRA_URL }}/rest/raven/2.0/import/execution" | grep -q "2[0-9][0-9]"; then
+            echo "Successfully uploaded test results to Xray Server"
+            cat xray_response.json
+            exit 0
+          else
+            echo "Failed with this endpoint. Response:"
+            cat xray_response.json || echo "No response"
+          fi
+
+          # 3. Try a custom JSON format for Xray server format
+          echo "\nReformatting for Xray Server and trying again..."
+          
+          # Convert our report format to Xray Server format
+          python - << 'EOF'
+          import json
+          import os
+          
+          try:
+              with open('reports/xray-results/xray-report.json', 'r') as f:
+                  report = json.load(f)
+              
+              # Extract test data
+              test_info = report.get('info', {})
+              tests = report.get('tests', [])
+              
+              # Create Xray Server format (different from Cloud)
+              server_format = {
+                  "testExecutionKey": "",  # Will be created by Xray
+                  "info": {
+                      "summary": test_info.get('summary', 'Test Execution from GitHub CI'),
+                      "description": test_info.get('description', 'Automated test execution')
+                  },
+                  "tests": []
+              }
+              
+              # Convert test entries
+              for test in tests:
+                  server_format["tests"].append({
+                      "testKey": test.get("testKey", ""),
+                      "status": test.get("status", "FAIL"),
+                      "comment": test.get("comment", "")
+                  })
+              
+              # Write the reformatted report
+              with open('reports/xray-results/xray-server-report.json', 'w') as f:
+                  json.dump(server_format, f, indent=2)
+              
+              print("Successfully reformatted the report for Xray Server")
+          except Exception as e:
+              print(f"Error reformatting report: {str(e)}")
+          EOF
+          
+          if [ -f "reports/xray-results/xray-server-report.json" ]; then
+            echo "Content of xray-server-report.json:"
+            cat reports/xray-results/xray-server-report.json
+            
+            echo "\nTrying Xray Server with reformatted report..."
             if curl -s -o xray_response.json -w "%{http_code}" \
                  -H "Content-Type: application/json" \
                  -X POST \
                  -u "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" \
-                 --data @reports/xray-results/xray-report.json \
-                 "${{ secrets.JIRA_URL }}/rest/api/2/issue/bulk" | grep -q "2[0-9][0-9]"; then
-              echo "Successfully uploaded test results to Xray Server/DC"
+                 --data @reports/xray-results/xray-server-report.json \
+                 "${{ secrets.JIRA_URL }}/rest/raven/1.0/import/execution" | grep -q "2[0-9][0-9]"; then
+              echo "Successfully uploaded reformatted test results to Xray"
               cat xray_response.json
+              exit 0
             else
-              echo "Failed to upload test results to Xray. Response:"
-              cat xray_response.json
-              # We'll continue the workflow even if upload fails
+              echo "Failed with reformatted report. Response:"
+              cat xray_response.json || echo "No response"
             fi
           fi
+          
+          # 4. Create test execution directly via Jira API
+          echo "\nAttempting direct test execution creation via Jira API..."
+          
+          # Convert to direct Jira issue creation format
+          python - << 'EOF'
+          import json
+          import os
+          import uuid
+          
+          try:
+              with open('reports/xray-results/xray-report.json', 'r') as f:
+                  report = json.load(f)
+              
+              # Extract test data
+              test_info = report.get('info', {})
+              tests = report.get('tests', [])
+              
+              if len(tests) == 0:
+                  print("No tests to report")
+                  exit(0)
+              
+              # Get a test key to determine project
+              first_test = tests[0].get("testKey", "")
+              project_key = first_test.split("-")[0] if "-" in first_test else ""
+              
+              if not project_key:
+                  print("Could not determine project key from test IDs")
+                  exit(1)
+              
+              # Create a direct Jira issue creation payload
+              jira_payload = {
+                  "fields": {
+                      "project": {
+                          "key": project_key
+                      },
+                      "summary": test_info.get('summary', f"Test Execution {str(uuid.uuid4())[:8]}"),
+                      "description": test_info.get('description', 'Automated test execution'),
+                      "issuetype": {
+                          "name": "Test Execution"
+                      }
+                  }
+              }
+              
+              # Write the Jira issue creation payload
+              with open('reports/xray-results/jira-execution.json', 'w') as f:
+                  json.dump(jira_payload, f, indent=2)
+              
+              print("Successfully created Jira issue creation payload")
+          except Exception as e:
+              print(f"Error creating Jira payload: {str(e)}")
+          EOF
+          
+          if [ -f "reports/xray-results/jira-execution.json" ]; then
+            echo "Content of jira-execution.json:"
+            cat reports/xray-results/jira-execution.json
+            
+            echo "\nCreating Test Execution in Jira..."
+            if curl -s -o execution_response.json -w "%{http_code}" \
+                 -H "Content-Type: application/json" \
+                 -X POST \
+                 -u "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" \
+                 --data @reports/xray-results/jira-execution.json \
+                 "${{ secrets.JIRA_URL }}/rest/api/2/issue" | grep -q "2[0-9][0-9]"; then
+              echo "Successfully created Test Execution in Jira"
+              cat execution_response.json
+              
+              # Extract the execution key
+              EXECUTION_KEY=$(python -c "import json; print(json.load(open('execution_response.json'))['key'])")
+              echo "Created Test Execution: $EXECUTION_KEY"
+              
+              # Now associate tests with the execution
+              echo "\nAssociating tests with the execution..."
+              for TEST_KEY in $(python -c "import json; print(' '.join([t['testKey'] for t in json.load(open('reports/xray-results/xray-report.json'))['tests']]))")
+              do
+                echo "Adding test $TEST_KEY to execution $EXECUTION_KEY"
+                
+                # Create a payload for the association
+                echo "{\"add\": [\"$TEST_KEY\"]}" > test_add.json
+                
+                # Associate the test with the execution
+                curl -s \
+                     -H "Content-Type: application/json" \
+                     -X POST \
+                     -u "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" \
+                     --data @test_add.json \
+                     "${{ secrets.JIRA_URL }}/rest/raven/1.0/api/testexec/$EXECUTION_KEY/test"
+              done
+              
+              echo "Successfully associated tests with execution"
+              exit 0
+            else
+              echo "Failed to create Test Execution. Response:"
+              cat execution_response.json || echo "No response"
+            fi
+          fi
+          
+          echo "\nAll attempts to upload to Xray failed. Please check your Xray setup and credentials."
+          # Continue workflow even if Xray upload fails
         else
           echo "No Xray report found at reports/xray-results/xray-report.json"
         fi
-        
