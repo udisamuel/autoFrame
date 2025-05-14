@@ -39,6 +39,10 @@ jobs:
         pip install pytest==7.4.0
         # Then install pytest-xray
         pip install pytest-xray==0.2.1
+        # Check if pytest-xray is correctly installed
+        python -c "import pytest_xray; print('pytest-xray version:', pytest_xray.__version__)"
+        pip list | grep pytest
+        
         # Now install the rest
         pip install -e .
         # Use --no-deps to avoid overwriting pytest version
@@ -57,13 +61,22 @@ jobs:
         sudo ln -s /tmp/allure-2.24.1/bin/allure /usr/local/bin/allure
         allure --version
 
-    - name: Run tests
+    - name: Verify Xray Configuration
       run: |
-        mkdir -p reports/allure-results
-        mkdir -p reports/xray-results
+        # Create a simple test to check Xray configuration
+        mkdir -p test_xray
+        cat > test_xray/test_basic.py << EOF
+        import pytest
+        
+        @pytest.mark.xray("TEST-123")
+        def test_basic():
+            assert True
+        EOF
+        
         # Configure Xray for pytest 7.x
         cat > xray_config.ini << EOF
         [pytest]
+        xray_enabled = true
         xray_base_url = "${JIRA_URL}"
         xray_username = "${JIRA_USERNAME}"
         xray_password = "${JIRA_PASSWORD}"
@@ -73,11 +86,25 @@ jobs:
         xray_output_path = "reports/xray-results/xray-report.json"
         EOF
         
-        cat xray_config.ini
+        mkdir -p reports/xray-results
+        
+        # Run this one test with the xray config
+        PYTHONDONTWRITEBYTECODE=1 python -m pytest test_xray -v -c xray_config.ini
+      env:
+        JIRA_URL: ${{ secrets.JIRA_URL }}
+        JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+        JIRA_PASSWORD: ${{ secrets.JIRA_API_TOKEN }}
+        XRAY_CLIENT_ID: ${{ secrets.XRAY_CLIENT_ID }}
+        XRAY_CLIENT_SECRET: ${{ secrets.XRAY_CLIENT_SECRET }}
+        XRAY_TESTPLAN_KEY: ${{ github.event.inputs.testplan_key || '' }}
+        
+    - name: Run tests
+      run: |
+        mkdir -p reports/allure-results
         
         # GitHub Actions runners typically have 2 cores
         # Disable assertion rewriting to avoid the lineno error
-        PYTHONDONTWRITEBYTECODE=1 python -m pytest tests -n 2 --alluredir=reports/allure-results --dist=loadfile -c xray_config.ini --xray
+        PYTHONDONTWRITEBYTECODE=1 python -m pytest tests -v -n 2 --alluredir=reports/allure-results --dist=loadfile -c xray_config.ini
       env:
         POSTGRES_HOST: localhost
         POSTGRES_PORT: 5432
