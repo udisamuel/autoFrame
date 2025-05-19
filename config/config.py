@@ -56,6 +56,25 @@ class Config:
     AI_TEST_ANALYSIS_ENABLED = os.getenv("AI_TEST_ANALYSIS_ENABLED", "false").lower() == "true"
     AI_TEST_GENERATION_ENABLED = os.getenv("AI_TEST_GENERATION_ENABLED", "false").lower() == "true"
     
+    # Jira Configuration
+    JIRA_ENABLED = os.getenv("JIRA_ENABLED", "false").lower() == "true"
+    JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", os.getenv("JIRA_URL", ""))  # Support both naming conventions
+    JIRA_USERNAME = os.getenv("JIRA_USERNAME", "")  # Usually the email address for Jira Cloud
+    JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN", "")  # API token from Atlassian account
+    JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "")  # The project key (e.g., TEST)
+    
+    # Xray Configuration
+    XRAY_ENABLED = os.getenv("XRAY_ENABLED", "false").lower() == "true"
+    XRAY_CLOUD = os.getenv("XRAY_CLOUD", os.getenv("XRAY_CLOUD_ENABLED", "true")).lower() == "true"  # Support both naming conventions
+    
+    # Xray Cloud specific settings
+    XRAY_CLIENT_ID = os.getenv("XRAY_CLIENT_ID", "")  # Client ID for Xray Cloud API
+    XRAY_CLIENT_SECRET = os.getenv("XRAY_CLIENT_SECRET", "")  # Client Secret for Xray Cloud API
+    
+    # Xray Server/Data Center specific settings
+    XRAY_TEST_EXECUTION_TYPE_FIELD = os.getenv("XRAY_TEST_EXECUTION_TYPE_FIELD", "customfield_10100")
+    XRAY_AUTO_REPORT_RESULTS = os.getenv("XRAY_AUTO_REPORT_RESULTS", "true").lower() == "true"
+    
     # Ensure directories exist
     @classmethod
     def create_directories(cls):

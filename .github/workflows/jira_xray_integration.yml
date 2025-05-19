@@ -1,0 +1,169 @@
+name: Test with Jira/Xray Integration
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      test_pattern:
+        description: 'Test pattern to run (e.g., tests/test_api_*.py)'
+        required: false
+        default: 'tests/'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        playwright install --with-deps chromium
+        
+    - name: Create .env file
+      run: |
+        echo "# Application settings" > .env
+        echo "BASE_URL=${{ vars.BASE_URL || 'https://example.com' }}" >> .env
+        echo "BROWSER=chromium" >> .env
+        echo "HEADLESS=true" >> .env
+        echo "DEFAULT_TIMEOUT=30000" >> .env
+        
+        # Jira Configuration
+        echo "JIRA_ENABLED=true" >> .env
+        echo "JIRA_BASE_URL=${{ secrets.JIRA_URL }}" >> .env
+        echo "JIRA_USERNAME=${{ secrets.JIRA_USERNAME }}" >> .env
+        echo "JIRA_API_TOKEN=${{ secrets.JIRA_API_TOKEN }}" >> .env
+        echo "JIRA_PROJECT_KEY=${{ secrets.JIRA_PROJECT_KEY }}" >> .env
+        
+        # Xray Configuration
+        echo "XRAY_ENABLED=true" >> .env
+        echo "XRAY_CLOUD=${{ secrets.XRAY_CLOUD_ENABLED || 'true' }}" >> .env
+        echo "XRAY_AUTO_REPORT_RESULTS=true" >> .env
+        echo "XRAY_CLIENT_ID=${{ secrets.XRAY_CLIENT_ID }}" >> .env
+        echo "XRAY_CLIENT_SECRET=${{ secrets.XRAY_CLIENT_SECRET }}" >> .env
+        
+        # Add other configuration as needed
+        # DB configs, AWS configs, etc.
+        
+    - name: Create Test Execution in Xray
+      id: create_execution
+      run: |
+        # Create a new test execution and store its key
+        EXECUTION_KEY=$(python -c "
+        from utils.xray_helper import XrayHelper
+        from utils.jira_helper import JiraHelper
+        import json
+        
+        jira_helper = JiraHelper()
+        xray_helper = XrayHelper(jira_helper=jira_helper)
+        
+        # Get all Xray Test keys from test markers
+        import pytest
+        import os
+        
+        # Collect all test files
+        test_files = []
+        for root, dirs, files in os.walk('tests'):
+            for file in files:
+                if file.startswith('test_') and file.endswith('.py'):
+                    test_files.append(os.path.join(root, file))
+        
+        # Extract test keys from markers
+        test_keys = set()
+        for file in test_files:
+            try:
+                with open(file, 'r') as f:
+                    content = f.read()
+                    import re
+                    # Look for pytest.mark.xray annotations
+                    matches = re.findall(r'@pytest\.mark\.xray\(test_key=\"([^\"]+)\"', content)
+                    for match in matches:
+                        test_keys.add(match)
+            except Exception as e:
+                print(f'Error processing {file}: {e}')
+        
+        test_keys = list(test_keys)
+        
+        if not test_keys:
+            # If no test keys found, just add a placeholder message
+            print('No Xray test keys found in test files')
+            print('TEST-EXECUTION-NONE')
+            exit(0)
+        
+        # Create the test execution
+        try:
+            execution = xray_helper.create_test_execution(
+                summary=f'Automated Test Execution - GitHub Actions - {os.environ.get(\"GITHUB_RUN_ID\", \"manual\")}',
+                description=f'Automated test execution created by GitHub Actions workflow run #{os.environ.get(\"GITHUB_RUN_NUMBER\", \"manual\")} for {os.environ.get(\"GITHUB_REPOSITORY\", \"unknown repo\")}',
+                test_keys=test_keys
+            )
+            
+            # Print the execution key for the next step
+            if isinstance(execution, dict) and 'key' in execution:
+                print(execution['key'])
+            else:
+                print(json.dumps(execution))
+        except Exception as e:
+            print(f'Error creating test execution: {e}')
+            print('TEST-EXECUTION-ERROR')
+        ")
+        
+        # Set the execution key as an environment variable for the test step
+        if [[ $EXECUTION_KEY != TEST-EXECUTION-* ]]; then
+          echo "XRAY_EXECUTION_KEY=$EXECUTION_KEY" >> $GITHUB_ENV
+          echo "Created Test Execution: $EXECUTION_KEY"
+        else
+          echo "Failed to create Test Execution or no test keys found"
+        fi
+      
+    - name: Run tests
+      run: |
+        # Run tests with Xray integration enabled
+        python -m pytest ${{ github.event.inputs.test_pattern || 'tests/' }} -v --junitxml=reports/junit-results.xml
+      
+    - name: Import JUnit results to Xray
+      if: always()  # Run this step even if tests fail
+      run: |
+        # Import JUnit results into Xray if we have an execution key
+        if [ -n "${{ env.XRAY_EXECUTION_KEY }}" ]; then
+          python -c "
+          from utils.xray_helper import XrayHelper
+          from utils.jira_helper import JiraHelper
+          import os
+          
+          jira_helper = JiraHelper()
+          xray_helper = XrayHelper(jira_helper=jira_helper)
+          
+          execution_key = os.environ.get('XRAY_EXECUTION_KEY')
+          
+          try:
+              result = xray_helper.import_results_from_junit(
+                  execution_key=execution_key,
+                  junit_path='reports/junit-results.xml'
+              )
+              print(f'Successfully imported results to execution {execution_key}')
+          except Exception as e:
+              print(f'Error importing results to Xray: {e}')
+          "
+        else
+          echo "No execution key available, skipping import to Xray"
+        fi
+      
+    - name: Upload test reports as artifacts
+      if: always()  # Run this step even if tests fail
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-reports
+        path: |
+          reports/
+          .env
