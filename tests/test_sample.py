@@ -13,6 +13,7 @@ class TestSample:
     @allure.description("Test sample functionality")
     def test_sample(self, _setup):
         """Sample test to demonstrate the structure."""
+        print("Running sample test...")
         # Start the timer
         with Timer(name="Sample Test Timer", store_stats=True, allure_attach=True) as timer:
 
