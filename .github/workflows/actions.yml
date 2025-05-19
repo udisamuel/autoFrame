@@ -49,17 +49,25 @@ jobs:
         sudo ln -s /tmp/allure-2.24.1/bin/allure /usr/local/bin/allure
         allure --version
 
-    - name: Run tests
+    - name: Run tests with Xray integration
       run: |
         mkdir -p reports/allure-results
         # GitHub Actions runners typically have 2 cores
-        python -m pytest tests -n 2 --alluredir=reports/allure-results --dist=loadfile
+        python -m pytest tests -n 2 --alluredir=reports/allure-results --dist=loadfile --xray
       env:
         POSTGRES_HOST: localhost
         POSTGRES_PORT: 5432
         POSTGRES_USER: postgres
         POSTGRES_PASSWORD: postgres
         POSTGRES_DB: testdb
+        # Xray and Jira configuration
+        JIRA_URL: ${{ secrets.JIRA_URL }}
+        JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+        XRAY_CLOUD_ENABLED: ${{ secrets.XRAY_CLOUD_ENABLED }}
+        XRAY_CLIENT_ID: ${{ secrets.XRAY_CLIENT_ID }}
+        XRAY_CLIENT_SECRET: ${{ secrets.XRAY_CLIENT_SECRET }}
 
     - name: Generate Allure report
       if: always()  # Generate report even if tests fail

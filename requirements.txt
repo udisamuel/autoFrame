@@ -3,6 +3,7 @@ playwright~=1.51.0
 pytest-playwright~=0.3.0
 allure-pytest~=2.14.0
 pytest-xdist~=3.5.0
+pytest-xray~=0.20.0
 requests~=2.31.0
 python-dotenv~=1.0.0
 psycopg2-binary~=2.9.9
