@@ -5,6 +5,7 @@ from utils.timer import Timer
 
 @allure.feature("Test Sample")
 @pytest.mark.sample
+@pytest.mark.xray("AUTOFRAME-1")  # Replace MYPROJ-123 with your actual Xray test ID
 class TestSample:
 
     @allure.story("Sample Test")
@@ -20,4 +21,5 @@ class TestSample:
 
             # Navigate to the home page
             mp.navigate_to_home()
+
 
