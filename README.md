@@ -31,7 +31,9 @@ This automation framework provides a unified approach to testing various compone
 
 - Python 3.11+
 - Dependencies as listed in `requirements.txt`
-- OpenAI API key (for AI capabilities)
+- AI features (optional): OpenAI API key
+- Jira integration (optional): Jira credentials and API token
+- Xray integration (optional): Xray client ID and secret (Cloud) or proper configuration (Server/DC)
 
 ## 🚀 Installation
 
@@ -89,6 +91,7 @@ Configuration options include:
 - Database connection details
 - AWS credentials and region
 - AI configuration (OpenAI API key, feature toggles)
+- Jira and Xray connection details (base URL, credentials, project key)
 - Timeouts and other test parameters
 
 ## 🔬 Running Tests
@@ -149,16 +152,28 @@ pytest
 allure serve reports/allure-results
 ```
 
-### Using AI capabilities
+### Running tests with Jira/Xray integration
 ```bash
-# Generate test data with AI
-./ai_cli.py generate-data --type user --count 5 --output data/users.json
+# Set the Xray test execution key for reporting
+export XRAY_EXECUTION_KEY=PROJ-123
 
-# Generate test cases with AI
-./ai_cli.py generate-test --type api --endpoint /users --method GET
+# Run tests and report results to Xray
+pytest -v tests/test_jira_xray_integration.py
 
-# Analyze test failures with AI
-./ai_cli.py analyze-failure --test-name test_login --error "AssertionError"
+# Import JUnit results to Xray
+python -c "from utils.xray_helper import XrayHelper; from utils.jira_helper import JiraHelper; XrayHelper(JiraHelper()).import_results_from_junit(None, 'reports/junit-results.xml')"
+
+# Using the dedicated script (creates Test Execution automatically)
+./run_tests_with_xray.py tests/test_api_*.py
+```
+
+### Running Jira/Xray integration in GitHub Actions
+```bash
+# Push to the main branch to trigger the workflow automatically
+git push origin main
+
+# Or manually trigger the workflow from the GitHub Actions UI
+# Go to your repository > Actions > Test with Jira/Xray Integration > Run workflow
 ```
 
 ## 📚 Documentation
@@ -166,6 +181,8 @@ allure serve reports/allure-results
 - [Pytest-xdist Usage Guide](docs/pytest_xdist_usage.md): Quick reference for parallel test execution
 - [Pytest-xdist Best Practices](docs/pytest_xdist_best_practices.md): Comprehensive guide to test isolation
 - [AI Capabilities](docs/ai_capabilities.md): Detailed guide on using AI features for testing
+- [Jira and Xray Integration](docs/jira_xray_integration.md): Guide to test case management with Jira and Xray
+- [GitHub Actions Integration](docs/github_actions_integration.md): Guide to running tests in CI/CD with GitHub Actions
 
 ## 📁 Project Structure
 
@@ -212,6 +229,14 @@ automation_framework/
 ```
 
 ## 🧩 Framework Components
+
+### Jira and Xray Integration
+The framework provides integration with Jira and Xray for test management:
+- Link tests to Jira test cases using markers
+- Report test results to Xray
+- Create Jira issues automatically for failed tests
+- Import JUnit XML results into Xray test executions
+- See the [Jira and Xray Integration Documentation](docs/jira_xray_integration.md) for detailed usage instructions
 
 ### AI Capabilities
 The framework integrates AI-powered capabilities to enhance testing workflows:
