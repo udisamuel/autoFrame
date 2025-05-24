@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+# In CI/CD, environment variables take precedence over .env file
+load_dotenv(override=False)
 
 class Config:
     """Configuration class for the test framework."""
