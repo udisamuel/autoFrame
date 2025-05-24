@@ -1,0 +1,63 @@
+name: Test Jira Integration Only
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  test-jira:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        playwright install chromium
+    
+    - name: Create .env file
+      run: |
+        cat > .env << 'EOF'
+        # Test configuration
+        BASE_URL=https://google.com
+        BROWSER=chromium
+        HEADLESS=true
+        AI_FEATURES_ENABLED=false
+        
+        # Jira configuration
+        JIRA_ENABLED=true
+        JIRA_BASE_URL=${{ secrets.JIRA_BASE_URL }}
+        JIRA_USERNAME=${{ secrets.JIRA_USERNAME }}
+        JIRA_API_TOKEN=${{ secrets.JIRA_API_TOKEN }}
+        JIRA_PROJECT_KEY=${{ secrets.JIRA_PROJECT_KEY }}
+        JIRA_ISSUE_TYPE=Bug
+        JIRA_CREATE_DUPLICATES=false
+        EOF
+    
+    - name: Debug environment
+      run: |
+        echo "=== Checking environment ==="
+        echo "CI=$CI"
+        echo "GITHUB_ACTIONS=$GITHUB_ACTIONS"
+        echo ""
+        echo "=== Checking .env file ==="
+        echo "JIRA_ENABLED is set to:"
+        grep "JIRA_ENABLED" .env || echo "Not found in .env"
+        echo ""
+        echo "=== Python environment check ==="
+        python -c "from config.config import Config; print(f'Config.JIRA_ENABLED={Config.JIRA_ENABLED}')"
+    
+    - name: Run environment check test
+      run: pytest tests/test_env_check.py -v -s
+    
+    - name: Run single Jira test
+      run: |
+        echo "Running a single test that should create a Jira ticket..."
+        pytest tests/test_jira_simple.py::test_simple_fail -v -s || true
+        echo "Test completed (failure expected)"

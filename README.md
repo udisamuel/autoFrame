@@ -20,6 +20,7 @@ This automation framework provides a unified approach to testing various compone
 - **Reliable Reporting**: Detailed reports with Allure, including screenshots and logs
 - **Environment-agnostic**: Use configuration files and environment variables for flexible deployment
 - **AI-Powered Testing**: Leverage artificial intelligence for test data generation, test case creation, and test result analysis
+- **Jira Integration**: Automatically create Jira tickets for failed tests with screenshots and AI analysis
 - **Comprehensive Helpers**:
   - API testing with request and response validation
   - Database interactions with PostgreSQL and ClickHouse
@@ -89,6 +90,7 @@ Configuration options include:
 - Database connection details
 - AWS credentials and region
 - AI configuration (OpenAI API key, feature toggles)
+- Jira integration (base URL, credentials, project settings)
 - Timeouts and other test parameters
 
 ## 🔬 Running Tests
@@ -166,6 +168,7 @@ allure serve reports/allure-results
 - [Pytest-xdist Usage Guide](docs/pytest_xdist_usage.md): Quick reference for parallel test execution
 - [Pytest-xdist Best Practices](docs/pytest_xdist_best_practices.md): Comprehensive guide to test isolation
 - [AI Capabilities](docs/ai_capabilities.md): Detailed guide on using AI features for testing
+- [Jira Integration](docs/jira_integration.md): Automatically create Jira tickets for failed tests
 
 ## 📁 Project Structure
 

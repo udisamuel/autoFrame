@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+# In CI/CD, environment variables take precedence over .env file
+load_dotenv(override=False)
 
 class Config:
     """Configuration class for the test framework."""
@@ -55,6 +56,15 @@ class Config:
     AI_DATA_GENERATION_ENABLED = os.getenv("AI_DATA_GENERATION_ENABLED", "false").lower() == "true"
     AI_TEST_ANALYSIS_ENABLED = os.getenv("AI_TEST_ANALYSIS_ENABLED", "false").lower() == "true"
     AI_TEST_GENERATION_ENABLED = os.getenv("AI_TEST_GENERATION_ENABLED", "false").lower() == "true"
+    
+    # Jira Configuration
+    JIRA_ENABLED = os.getenv("JIRA_ENABLED", "false").lower() == "true"
+    JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "")  # e.g., https://your-domain.atlassian.net
+    JIRA_USERNAME = os.getenv("JIRA_USERNAME", "")  # Your Jira email
+    JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN", "")  # Your Jira API token
+    JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "")  # e.g., PROJ
+    JIRA_ISSUE_TYPE = os.getenv("JIRA_ISSUE_TYPE", "Bug")  # Issue type for test failures
+    JIRA_CREATE_DUPLICATES = os.getenv("JIRA_CREATE_DUPLICATES", "false").lower() == "true"  # Whether to create duplicate issues
     
     # Ensure directories exist
     @classmethod

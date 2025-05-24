@@ -1,0 +1,118 @@
+name: Debug Jira Integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install python-dotenv pytest
+    
+    - name: Show current state
+      run: |
+        echo "=== Environment Variables ==="
+        echo "JIRA_ENABLED=$JIRA_ENABLED"
+        echo "CI=$CI"
+        echo ""
+        echo "=== Directory Contents ==="
+        ls -la
+        echo ""
+        echo "=== Check for .env file ==="
+        if [ -f .env ]; then
+          echo ".env exists"
+          cat .env | grep -v TOKEN | grep -v PASSWORD
+        else
+          echo ".env does NOT exist"
+        fi
+    
+    - name: Create .env file METHOD 1 - Direct
+      run: |
+        echo "Creating .env file directly..."
+        cat > .env << 'EOF'
+        JIRA_ENABLED=true
+        JIRA_BASE_URL=${{ secrets.JIRA_BASE_URL }}
+        JIRA_USERNAME=${{ secrets.JIRA_USERNAME }}
+        JIRA_API_TOKEN=${{ secrets.JIRA_API_TOKEN }}
+        JIRA_PROJECT_KEY=${{ secrets.JIRA_PROJECT_KEY }}
+        JIRA_ISSUE_TYPE=Bug
+        JIRA_CREATE_DUPLICATES=false
+        BASE_URL=https://google.com
+        BROWSER=chromium
+        HEADLESS=true
+        AI_FEATURES_ENABLED=false
+        EOF
+        
+        echo "=== Checking .env creation ==="
+        ls -la .env
+        echo ""
+        echo "=== .env contents (masked) ==="
+        cat .env | sed 's/JIRA_API_TOKEN=.*/JIRA_API_TOKEN=***MASKED***/'
+    
+    - name: Run debug script
+      run: |
+        python debug_jira_ci.py
+    
+    - name: Test Config import directly
+      run: |
+        python -c "
+        from config.config import Config
+        print(f'Config.JIRA_ENABLED = {Config.JIRA_ENABLED}')
+        print(f'Type: {type(Config.JIRA_ENABLED)}')
+        print(f'Is True: {Config.JIRA_ENABLED == True}')
+        print(f'Is true string: {Config.JIRA_ENABLED == \"true\"}')
+        "
+    
+    - name: Run minimal test
+      run: |
+        python -c "
+        import os
+        os.environ['PYTHONPATH'] = '.'
+        
+        # Import after setting path
+        from config.config import Config
+        
+        print('=== Testing Jira Enable Check ===')
+        print(f'Config.JIRA_ENABLED: {Config.JIRA_ENABLED}')
+        
+        if Config.JIRA_ENABLED:
+            print('✅ JIRA IS ENABLED!')
+        else:
+            print('❌ JIRA IS NOT ENABLED!')
+        "
+    
+    - name: Alternative - Set env vars and create .env
+      env:
+        JIRA_ENABLED: 'true'
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+      run: |
+        # Create .env from environment
+        printenv | grep -E '^(JIRA_|BASE_URL|BROWSER|HEADLESS|AI_)' > .env
+        
+        # Add missing values
+        echo "BROWSER=chromium" >> .env
+        echo "HEADLESS=true" >> .env
+        echo "BASE_URL=https://google.com" >> .env
+        echo "AI_FEATURES_ENABLED=false" >> .env
+        
+        echo "=== Created .env from environment ==="
+        cat .env | sed 's/JIRA_API_TOKEN=.*/JIRA_API_TOKEN=***MASKED***/'
+        
+        # Test again
+        python debug_jira_ci.py
